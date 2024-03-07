@@ -1,0 +1,7 @@
+---
+AllowShortBlocksOnASingleLine: "false"
+AllowShortIfStatementsOnASingleLine: Never
+ColumnLimit: "160"
+ConstructorInitializerIndentWidth: "0"
+TabWidth: "2"
+UseTab: ForIndentation
