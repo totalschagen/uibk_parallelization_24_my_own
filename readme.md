@@ -12,11 +12,12 @@ regarding the grading of exercises.**
 
 Generally, topics discussed here include
 
+- numerical finite-volume solvers for hydrodynamics
+- general optimization of simulation codes
+- general discussion of programming toolchain
 - parallel programming concepts
-- shared memory parallelization using OpenMP
-- performance-oriented programming
-- proper experiment orchestration and benchmarking
-- parallel programming tools
+- distributed-memory parallelization using MPI
+- efficiency in parallel programming
 
 ## General Information
 
