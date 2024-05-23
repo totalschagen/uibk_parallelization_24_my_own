@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
 	calcMandelbrot(image, size_x, size_y);
 
 	constexpr int stride_bytes = 0;
-	stbi_write_png("mandelbrot_seq.png", size_x, size_y, num_channels, image.data(), stride_bytes);
+	stbi_write_png("mandelbrot_mpi.png", size_x, size_y, num_channels, image.data(), stride_bytes);
 
 	return EXIT_SUCCESS;
 }
