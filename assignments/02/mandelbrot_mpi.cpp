@@ -14,10 +14,10 @@
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
-#pragma GCC diagnostic push
+#pragma GCC diagnostic pop
 
-constexpr int default_size_x = 1280;
-constexpr int default_size_y = 720;
+constexpr int default_size_x = 1344;
+constexpr int default_size_y = 768;
 
 // RGB image will hold 3 color channels
 constexpr int num_channels = 3;
