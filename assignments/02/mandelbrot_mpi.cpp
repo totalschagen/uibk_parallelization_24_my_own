@@ -1,11 +1,13 @@
 #include <bits/chrono.h>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <chrono>
 #include <sys/time.h>
 #include <tuple>
 #include <vector>
+#include <mpi.h>
 
 // Include that allows to print result as an image
 // Also, ignore some warnings that pop up when compiling this as C++ mode
@@ -79,6 +81,7 @@ void calcMandelbrot(Image &image, int size_x, int size_y) {
 	// 2) result aggregation
 	//   - aggregate the individual parts of the ranks into a single, complete image on the root rank (rank 0)
 
+
 	for (int pixel_y = 0; pixel_y < size_y; pixel_y++) {
 		// scale y pixel into mandelbrot coordinate system
 		const float cy = (pixel_y / (float)size_y) * (top - bottom) + bottom;
@@ -118,8 +121,15 @@ void calcMandelbrot(Image &image, int size_x, int size_y) {
 
 int main(int argc, char **argv) {
 
+	MPI_Init(&argc, &argv);
+
+	int rankNum, rankID;
+	MPI_Comm_size(MPI_COMM_WORLD,&rankNum);
+	MPI_Comm_rank(MPI_COMM_WORLD,&rankID);
+
 	int size_x = default_size_x;
 	int size_y = default_size_y;
+
 
 	if (argc == 3) {
 		size_x = atoi(argv[1]);
@@ -129,12 +139,35 @@ int main(int argc, char **argv) {
 		std::cout << "No arguments given, using default size " << size_x << "x" << size_y << std::endl;
 	}
 
+	if(size_y % rankNum != 0){
+		printf("The y-Dimension of the image must be integeger divisible by the number of nodes");
+		return EXIT_FAILURE;
+	}
+
 	Image image(num_channels * size_x * size_y);
 
-	calcMandelbrot(image, size_x, size_y);
+	
+	int n_lines = size_y / rankNum;
+	int len_chunks = n_lines * size_x; // number of image elements I pass to the other ranks
+
+	Image image_chunk(num_channels * size_x * n_lines); // Make sure it the right size
+
+	if(rankID==0){
+		// Send the chunks to the other ranks
+		MPI_Scatter(&image, len_chunks, MPI_INT, &image_chunk, len_chunks, MPI_INT, 0, MPI_COMM_WORLD);
+	}
+
+	calcMandelbrot(image_chunk, size_x, n_lines);
+
+	// Now the root process needs to gather all the
+	MPI_Gather(&image_chunk, len_chunks, MPI_INT, &image, len_chunks, MPI_INT, 0, MPI_COMM_WORLD);
 
 	constexpr int stride_bytes = 0;
 	stbi_write_png("mandelbrot_mpi.png", size_x, size_y, num_channels, image.data(), stride_bytes);
 
+	if(rankID==0)
+	{
+		stbi_write_png("mandelbrot_mpi.png", size_x, size_y, num_channels, image.data(), stride_bytes);
+	}
+	MPI_Finalize();
 	return EXIT_SUCCESS;
-}
