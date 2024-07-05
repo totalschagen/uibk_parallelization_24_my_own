@@ -427,6 +427,114 @@ void finite_volume_solver::apply_boundary_conditions(grid_3D &spatial_grid, flui
 
 			// TBD by students 
 
+			// first, get data from neighbouring rank at the front and send data to rank at the back.
+
+			// where necessary, do parallel boundaries
+
+			// Prepare buffer -> size 2 x Nx x Nz
+			size_buff = 2 * Nx * Ny;
+			std::vector<double> buff_send_z(size_buff);
+			std::vector<double> buff_recv_z(size_buff);
+
+
+			// get distination rank
+			dest_rank = parallel_handler.get_bottom();
+			src_rank = parallel_handler.get_top();
+
+			tag_send = 2;
+			tag_recv = 2;
+
+			// prepare buffer to be send
+			i_buff=0;
+			for (int ix = 0; ix < spatial_grid.get_num_cells(0); ++ix) {
+				for (int iy = 0; iy < spatial_grid.get_num_cells(1); ++iy) {
+					for(int iz=0; iz<2; iz++) {
+						buff_send_z[i_buff] = current_fluid.fluid_data[i_field](ix,iy,  Nz - 2 + iz);
+						i_buff++;
+					}
+				}
+			}
+
+			// Send and receive data
+			MPI_Sendrecv(&buff_send_z[0], size_buff, MPI_DOUBLE, dest_rank, tag_send,
+	            &buff_recv_z[0], size_buff, MPI_DOUBLE, src_rank, tag_recv, parallel_handler.comm3D, &status);
+
+
+			// Finally, assign data - either directly or from receive buffer
+			if(parallel_handler.get_front()==MPI_PROC_NULL) {
+				for (int ix = 0; ix < spatial_grid.get_num_cells(0); ++ix) {
+					for (int iy =0; iy <spatial_grid.get_num_cells(1); ++iy) {
+						for (int iz = -1; iz >= -2; --iz) {
+							current_fluid.fluid_data[i_field](ix, iy, iz) = current_fluid.fluid_data[i_field](ix, iy , iz+1);
+						}
+					}
+				}
+			} else {
+				i_buff=0;
+				for (int ix = 0; ix < spatial_grid.get_num_cells(0); ++ix) {
+					for (int iy = 0; iy < spatial_grid.get_num_cells(1); ++iy) {
+						for (int iz = 0; iz < 2; ++iz) {
+							current_fluid.fluid_data[i_field](ix, iy , iz-2) = buff_recv_z[i_buff];
+							i_buff++;
+						}
+					}
+				}
+			}
+
+
+
+
+			// Upper y boundary
+
+			// next, get data from neighbouring rank at the back and send data to rank in front.
+
+			// where necessary, do parallel boundaries
+
+			// get distination rank
+			dest_rank = parallel_handler.get_top();
+			src_rank = parallel_handler.get_bottom();
+
+			tag_send = 3;
+			tag_recv = 3;
+
+			// prepare buffer to be send
+			i_buff=0;
+			for (int ix = 0; ix < spatial_grid.get_num_cells(0); ++ix) {
+				for (int iy = 0; iy < spatial_grid.get_num_cells(1); ++iy) {
+					for(int iz=0; iz<2; iz++) {
+						buff_send_z[i_buff] = current_fluid.fluid_data[i_field](ix, iy  , iz-2);
+						i_buff++;
+					}
+				}
+			}
+
+			// Send and receive data
+			MPI_Sendrecv(&buff_send_z[0], size_buff, MPI_DOUBLE, dest_rank, tag_send,
+	            &buff_recv_z[0], size_buff, MPI_DOUBLE, src_rank, tag_recv, parallel_handler.comm3D, &status);
+
+
+			// Finally, assign data - either directly or from receive buffer
+			if(parallel_handler.get_back()==MPI_PROC_NULL) {
+				for (int ix = 0; ix < spatial_grid.get_num_cells(0); ++ix) {
+					for (int iy = 0; iy < spatial_grid.get_num_cells(1); ++iy) {
+						for (int iz = spatial_grid.get_num_cells(2); iz < spatial_grid.get_num_cells(2) + 2; ++iz) {
+							current_fluid.fluid_data[i_field](ix, iy, iz) = current_fluid.fluid_data[i_field](ix, iy , iz-1);
+						}
+					}
+				}
+			} else {
+				i_buff=0;
+				for (int ix = 0; ix < spatial_grid.get_num_cells(0); ++ix) {
+					for (int iy = 0; iy < spatial_grid.get_num_cells(1); ++iy) {
+						for (int iz = 0; iz < 2; ++iz) {
+							current_fluid.fluid_data[i_field](ix, iy, Nz+iz) = buff_recv_z[i_buff];
+							i_buff++;
+						}
+					}
+				}
+			}
+
+
 		}
 	}
 
@@ -539,7 +647,8 @@ double finite_volume_solver::get_CFL(grid_3D &spatial_grid, fluid &current_fluid
 	}
 #ifdef PARALLEL_VERSION
 	// TBD by students
-
+	double current_CLF_number = CLF_number;
+	MPI_Allreduce(&current_CLF_number,&CLF_number,1,MPI_DOUBLE,MPI_MAX,parallel_handler.comm3D);
 #endif
 
 	if(rank==0) {
@@ -745,5 +854,7 @@ matrix<double, 3> finite_volume_solver::get_data_computational_volume(grid_3D &s
 			}
 		}
 	}
+	return return_data;
+}
 	return return_data;
 }
